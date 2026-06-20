@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image
 import io, os, numpy as np
@@ -227,6 +227,10 @@ def load_model():
             print("FATAL ERROR loading model:")
             traceback.print_exc()
             os._exit(1)
+
+@app.route('/')
+def index():
+    return send_file('index.html')
 
 @app.route('/status', methods=['GET'])
 def status():
