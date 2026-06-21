@@ -454,8 +454,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadHeatmapPrefs();
 
   resetApp();
-  checkServerStatus();
-  setInterval(checkServerStatus, 6000);
+  startServerStatusPolling();
 
   // safe event listeners for download/reset buttons
   if (resetBtn) resetBtn.addEventListener('click', resetApp);
@@ -719,7 +718,17 @@ async function runPrediction(file) {
 
     const formData = new FormData(); formData.append('image', file);
     setTimelineStep(2);
-    const response = await fetch(API_ENDPOINT, { method: 'POST', body: formData });
+
+    // 90-second timeout — gives Render free tier time to cold-start
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    let response;
+    try {
+      response = await fetch(API_ENDPOINT, { method: 'POST', body: formData, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const txt = await response.text();
@@ -733,7 +742,11 @@ async function runPrediction(file) {
     showResults(data);
 
   } catch (err) {
-    showError(`Failed to connect to backend server. (${err.message})`);
+    if (err.name === 'AbortError') {
+      showError('Request timed out (90 s). The server may still be waking up — please try again in a moment.');
+    } else {
+      showError(`Failed to connect to backend server. (${err.message})`);
+    }
     console.error('Prediction API Network Error:', err);
   }
 }
@@ -754,25 +767,64 @@ function handleImageUpload(event) {
   reader.readAsDataURL(file);
 }
 
-/* ---------- Server status (safe) ---------- */
+/* ---------- Server status with retry / wake-up handling ---------- */
+let _statusRetryTimer = null;
+
+function setStatusBadge(text, style) {
+  if (!serverStatus) return;
+  serverStatus.textContent = text;
+  // style: 'ready' | 'waking' | 'offline'
+  const base = 'mt-2 text-xs font-semibold py-1 px-3 rounded-full inline-block shadow-md';
+  if (style === 'ready')   serverStatus.className = base + ' bg-success text-white';
+  else if (style === 'waking') serverStatus.className = base + ' bg-warning text-dark';
+  else                     serverStatus.className = base + ' bg-danger text-white';
+}
+
 async function checkServerStatus() {
   try {
-    const response = await fetch(STATUS_ENDPOINT);
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 8000); // 8 s per attempt
+    let response;
+    try {
+      response = await fetch(STATUS_ENDPOINT, { signal: controller.signal });
+    } finally {
+      clearTimeout(tid);
+    }
     const data = await response.json();
     if (response.ok && data.status === 'Model Ready') {
-      if (serverStatus) {
-        serverStatus.textContent = 'Model status: Ready';
-        serverStatus.className =
-          'mt-2 text-xs font-semibold py-1 px-3 rounded-full inline-block bg-success text-white shadow-md';
-      }
-    } else throw new Error('Server not ready');
-  } catch (err) {
-    if (serverStatus) {
-      serverStatus.textContent = 'Model status: Offline';
-      serverStatus.className =
-        'mt-2 text-xs font-semibold py-1 px-3 rounded-full inline-block bg-danger text-white shadow-md';
+      setStatusBadge('Model status: Ready ✓', 'ready');
+      return true;
     }
+    throw new Error('not ready');
+  } catch (_) {
+    return false;
   }
+}
+
+async function startServerStatusPolling() {
+  // Retry up to ~3 minutes (18 attempts × 10 s)
+  const MAX_ATTEMPTS = 18;
+  let attempt = 0;
+
+  setStatusBadge('Model status: Waking up…', 'waking');
+
+  async function poll() {
+    attempt++;
+    const ready = await checkServerStatus();
+    if (ready) return; // done — badge already set to Ready
+
+    if (attempt >= MAX_ATTEMPTS) {
+      setStatusBadge('Model status: Offline', 'offline');
+      return;
+    }
+
+    // Show countdown
+    const waitSec = Math.min(10 + attempt * 2, 30);
+    setStatusBadge(`Waking server… (retry ${attempt}/${MAX_ATTEMPTS})`, 'waking');
+    _statusRetryTimer = setTimeout(poll, waitSec * 1000);
+  }
+
+  poll();
 }
 </script>
 </body>
