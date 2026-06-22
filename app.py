@@ -173,8 +173,8 @@ data_transforms = transforms.Compose([
 # ------------------------------------------------------------------
 app = Flask(__name__)
 CORS(app)
+
 model = None
-load_model()
 
 def try_load_state_dict(target_model, path, device):
     state = torch.load(path, map_location=device)
@@ -243,6 +243,11 @@ def status():
 # ------------------------------------------------------------------
 @app.route('/predict', methods=['POST'])
 def predict():
+    global model
+
+    if model is None:
+        load_model()
+
     if 'image' not in request.files:
         return jsonify({"error": "No image uploaded."}), 400
 
@@ -323,6 +328,12 @@ def predict():
         })
 
 # ------------------------------------------------------------------
-'''if __name__ == '__main__':
-    load_model()'''
-app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+if __name__ == '__main__':
+    load_model()
+
+    app.run(
+        debug=True,
+        host='0.0.0.0',
+        port=5000,
+        use_reloader=False
+    )
