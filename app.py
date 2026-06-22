@@ -212,7 +212,6 @@ def try_load_state_dict(target_model, path, device):
                 print("Final attempt (strict=False) also failed:", e3)
                 return False
 
-@app.before_request
 def load_model():
     global model
     if model is None:
@@ -272,15 +271,12 @@ def predict():
             with torch.inference_mode():
                 logits = model(img_tensor)
 
-        # forward (no torch.no_grad, we need gradients)
-        logits = model(img_tensor)
         probs = torch.softmax(logits, dim=1)[0]
         conf, pred_idx = torch.max(probs, dim=0)
 
         result_text = CLASSES.get(int(pred_idx.item()), "Unknown")
 
         # Grad-CAM overlay
-        heatmap_url = None
         heatmap_url = None
 
         if ENABLE_GRADCAM:
@@ -291,9 +287,17 @@ def predict():
                     int(pred_idx.item()),
                     img_rgb
                 )
-        except Exception:
-            traceback.print_exc()
-            heatmap_url = None
+
+                if overlay_pil is not None:
+                    buf = io.BytesIO()
+                    overlay_pil.save(buf, format="PNG")
+                    buf.seek(0)
+                    b64 = base64.b64encode(buf.read()).decode("utf-8")
+                    heatmap_url = f"data:image/png;base64,{b64}"
+
+            except Exception:
+                traceback.print_exc()
+                heatmap_url = None
 
         response = {
             "prediction": result_text,
