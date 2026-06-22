@@ -216,7 +216,7 @@ def load_model():
     if model is None:
         print(f"Attempting to load ResNet-50 model from: {MODEL_PATH} on device: {device}")
         try:
-            model = ResNet50Classifier(num_classes=len(CLASSES), hidden_units=512, use_pretrained=True)
+            model = ResNet50Classifier(num_classes=len(CLASSES), hidden_units=512, use_pretrained=False)
             ok = try_load_state_dict(model.model, MODEL_PATH, device)
             if not ok:
                 raise RuntimeError("Failed to load state_dict into model. See logs above for details.")
