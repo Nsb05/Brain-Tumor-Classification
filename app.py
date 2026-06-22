@@ -13,6 +13,8 @@ import base64
 # ------------------------------------------------------------------
 MODEL_PATH = 'tumor_resnet50.pth'
 IMG_SIZE = 224
+
+ENABLE_GRADCAM = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 CLASSES = {
@@ -262,7 +264,13 @@ def predict():
         # preprocess for model
         img_rgb = img.convert('RGB')
         img_tensor = data_transforms(img_rgb).unsqueeze(0).to(device)
-        img_tensor.requires_grad_(True)
+
+        if ENABLE_GRADCAM:
+            img_tensor.requires_grad_(True)
+            logits = model(img_tensor)
+        else:
+            with torch.inference_mode():
+                logits = model(img_tensor)
 
         # forward (no torch.no_grad, we need gradients)
         logits = model(img_tensor)
@@ -273,14 +281,16 @@ def predict():
 
         # Grad-CAM overlay
         heatmap_url = None
-        try:
-            overlay_pil = generate_gradcam_overlay(model, img_tensor, int(pred_idx.item()), img_rgb)
-            if overlay_pil is not None:
-                buf = io.BytesIO()
-                overlay_pil.save(buf, format='PNG')
-                buf.seek(0)
-                b64 = base64.b64encode(buf.read()).decode('utf-8')
-                heatmap_url = f"data:image/png;base64,{b64}"
+        heatmap_url = None
+
+        if ENABLE_GRADCAM:
+            try:
+                overlay_pil = generate_gradcam_overlay(
+                    model,
+                    img_tensor,
+                    int(pred_idx.item()),
+                    img_rgb
+                )
         except Exception:
             traceback.print_exc()
             heatmap_url = None
