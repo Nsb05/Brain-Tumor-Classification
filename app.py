@@ -171,10 +171,7 @@ data_transforms = transforms.Compose([
 # ------------------------------------------------------------------
 # Flask App Setup
 # ------------------------------------------------------------------
-app = Flask(__name__)
-CORS(app)
 
-model = None
 
 def try_load_state_dict(target_model, path, device):
     state = torch.load(path, map_location=device)
@@ -229,6 +226,12 @@ def load_model():
             print("FATAL ERROR loading model:")
             traceback.print_exc()
             os._exit(1)
+
+app = Flask(__name__)
+CORS(app)
+
+model = None
+load_model()
 
 @app.route('/')
 def index():
@@ -328,7 +331,7 @@ def predict():
         })
 
 # ------------------------------------------------------------------
-if __name__ == '__main__':
+'''if __name__ == '__main__':
     load_model()
 
     app.run(
@@ -337,3 +340,4 @@ if __name__ == '__main__':
         port=5000,
         use_reloader=False
     )
+'''
