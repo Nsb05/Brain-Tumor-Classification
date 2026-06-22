@@ -719,14 +719,27 @@ async function runPrediction(file) {
     const formData = new FormData(); formData.append('image', file);
     setTimelineStep(2);
 
-    // 90-second timeout — gives Render free tier time to cold-start
+    // allow long cold starts on Render free tier
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      300000
+    );
 
     let response;
+
     try {
-      response = await fetch(API_ENDPOINT, { method: 'POST', body: formData, signal: controller.signal });
-    } finally {
+      response = await fetch(
+        API_ENDPOINT,
+        {
+          method:'POST',
+          body:formData,
+          signal:controller.signal
+        }
+      );
+    }
+    finally {
       clearTimeout(timeoutId);
     }
 
@@ -743,7 +756,7 @@ async function runPrediction(file) {
 
   } catch (err) {
     if (err.name === 'AbortError') {
-      showError('Request timed out (90 s). The server may still be waking up — please try again in a moment.');
+      showError('Server is still processing the MRI. Please wait and retry shortly.')
     } else {
       showError(`Failed to connect to backend server. (${err.message})`);
     }
@@ -802,8 +815,7 @@ async function checkServerStatus() {
 }
 
 async function startServerStatusPolling() {
-  // Retry up to ~3 minutes (18 attempts × 10 s)
-  const MAX_ATTEMPTS = 18;
+  const MAX_ATTEMPTS = 60;
   let attempt = 0;
 
   setStatusBadge('Model status: Waking up…', 'waking');
