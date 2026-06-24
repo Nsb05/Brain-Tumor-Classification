@@ -15,7 +15,7 @@ MODEL_PATH = 'tumor_resnet50.pth'
 IMG_SIZE = 224
 
 ENABLE_GRADCAM = False
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 CLASSES = {
     0: "Glioma",
@@ -174,7 +174,7 @@ data_transforms = transforms.Compose([
 
 
 def try_load_state_dict(target_model, path, device):
-    state = torch.load(path, map_location=device)
+    state = torch.load(path, map_location="cpu", weights_only=True)
     if isinstance(state, dict):
         possible_keys = ['state_dict', 'model_state_dict', 'model', 'net']
         for k in possible_keys:
@@ -221,6 +221,8 @@ def load_model():
                 raise RuntimeError("Failed to load state_dict into model. See logs above for details.")
             model.to(device)
             model.eval()
+            import gc
+            gc.collect()
             print("Model loaded successfully and set to eval mode.")
         except Exception:
             print("FATAL ERROR loading model:")
