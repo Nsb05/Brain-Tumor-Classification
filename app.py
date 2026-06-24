@@ -213,7 +213,7 @@ def try_load_state_dict(target_model, path, device):
 def load_model():
     global model
     if model is None:
-        print(f"Attempting to load ResNet-50 model from: {MODEL_PATH} on device: {device}")
+        print("Lazy loading model on first prediction...")
         try:
             model = ResNet50Classifier(num_classes=len(CLASSES), hidden_units=512, use_pretrained=False)
             ok = try_load_state_dict(model.model, MODEL_PATH, device)
@@ -239,7 +239,6 @@ app = Flask(__name__)
 CORS(app)
 
 model = None
-load_model()
 
 @app.route('/')
 def index():
@@ -291,6 +290,9 @@ def predict():
         probs = torch.softmax(logits, dim=1)[0]
         conf, pred_idx = torch.max(probs, dim=0)
 
+        del img_tensor
+        gc.collect()
+
         result_text = CLASSES.get(int(pred_idx.item()), "Unknown")
 
         # Grad-CAM overlay
@@ -329,6 +331,10 @@ def predict():
         if heatmap_url is not None:
             response["heatmap"] = heatmap_url
 
+        del probs
+        del logits
+        gc.collect()
+
         return jsonify(response)
 
     except Exception:
@@ -338,14 +344,3 @@ def predict():
             "confidence": 0.0
         })
 
-# ------------------------------------------------------------------
-'''if __name__ == '__main__':
-    load_model()
-
-    app.run(
-        debug=True,
-        host='0.0.0.0',
-        port=5000,
-        use_reloader=False
-    )
-'''
