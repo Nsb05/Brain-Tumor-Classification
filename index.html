@@ -533,7 +533,8 @@ Technical Notes
     pdf.text(lines, margin, y);
 
     
-if ((!heatmapOverlay || !heatmapOverlay.src) && imagePreview && imagePreview.src) {
+let reportHeatmap=null;
+if(imagePreview && imagePreview.src){
 try{
 const blob=await fetch(imagePreview.src).then(r=>r.blob());
 const fd=new FormData();
@@ -541,11 +542,9 @@ fd.append("image",blob,"mri.png");
 const resp=await fetch(REPORT_HEATMAP_ENDPOINT,{method:"POST",body:fd});
 if(resp.ok){
 const data=await resp.json();
-if(data.heatmap && heatmapOverlay){
-heatmapOverlay.src=data.heatmap;
+reportHeatmap=data.heatmap||null;
 }
-}
-}catch(e){console.log("Heatmap generation skipped",e);}
+}catch(e){console.error(e)}
 }
 
 // ------------------ PAGE 2: IMAGES ------------------
@@ -594,8 +593,8 @@ heatmapOverlay.src=data.heatmap;
       y2 += mriHeight + 20;
 
       // Add visualization / heatmap if available
-      if (heatmapOverlay && heatmapOverlay.src) {
-        const heatData = heatmapOverlay.src;
+      if (reportHeatmap) {
+        const heatData = reportHeatmap;
         const heatFormat = detectFormat(heatData);
 
         const heatAspect = (heatmapOverlay.naturalHeight && heatmapOverlay.naturalWidth)

@@ -265,7 +265,8 @@ def generate_report_heatmap(img):
     img_tensor = data_transforms(img_rgb).unsqueeze(0).to(device)
     img_tensor.requires_grad_(True)
 
-    logits = model(img_tensor)
+    with torch.enable_grad():
+        logits = model(img_tensor)
     probs = torch.softmax(logits, dim=1)[0]
     _, pred_idx = torch.max(probs, dim=0)
 
