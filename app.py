@@ -177,7 +177,7 @@ data_transforms = transforms.Compose([
 
 
 def try_load_state_dict(target_model, path, device):
-    state = torch.load(path, map_location="cpu", weights_only=True)
+    state = torch.load(path, map_location=torch.device("cpu"))
     if isinstance(state, dict):
         possible_keys = ['state_dict', 'model_state_dict', 'model', 'net']
         for k in possible_keys:
@@ -245,14 +245,13 @@ def load_model():
                 raise RuntimeError("Failed to load state_dict into model. See logs above for details.")
             model.to("cpu")
             model.eval()
+            gc.collect()
 
-            model = torch.quantization.quantize_dynamic(
+            '''model = torch.quantization.quantize_dynamic(
                 model,
                 {torch.nn.Linear},
                 dtype=torch.qint8
-            )
-            import gc
-            gc.collect()
+            )'''
             print("Model loaded successfully and set to eval mode.")
         except Exception:
             print("FATAL ERROR loading model:")
