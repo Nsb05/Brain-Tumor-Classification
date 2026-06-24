@@ -8,11 +8,13 @@ import io, os, numpy as np
 import traceback
 import base64
 import gc
+import requests
 
 # ------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------
-MODEL_PATH = 'tumor_resnet50.pth'
+MODEL_PATH = "tumor_resnet50.pth"
+MODEL_URL = "https://github.com/Nsb05/Brain-Tumor-Classification/releases/download/v1.0/tumor_resnet50.pth"
 IMG_SIZE = 224
 
 ENABLE_GRADCAM = False
@@ -211,11 +213,32 @@ def try_load_state_dict(target_model, path, device):
                 print("Final attempt (strict=False) also failed:", e3)
                 return False
 
+
+
+def download_model():
+    if os.path.exists(MODEL_PATH):
+        print("Model already exists locally.")
+        return
+
+    print("Downloading model from GitHub Releases...")
+
+    response = requests.get(MODEL_URL, stream=True, timeout=300)
+    response.raise_for_status()
+
+    with open(MODEL_PATH, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+
+    print("Model download complete.")
+
 def load_model():
     global model
     if model is None:
         print("Lazy loading model on first prediction...")
         try:
+            download_model()
+
             model = ResNet50Classifier(num_classes=len(CLASSES), hidden_units=512, use_pretrained=False)
             ok = try_load_state_dict(model.model, MODEL_PATH, device)
             if not ok:
@@ -293,7 +316,9 @@ def predict():
         probs = torch.softmax(logits, dim=1)[0]
         conf, pred_idx = torch.max(probs, dim=0)
 
-        del img_tensor
+        if not ENABLE_GRADCAM:
+            del img_tensor
+
         gc.collect()
 
         result_text = CLASSES.get(int(pred_idx.item()), "Unknown")
