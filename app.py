@@ -219,8 +219,14 @@ def load_model():
             ok = try_load_state_dict(model.model, MODEL_PATH, device)
             if not ok:
                 raise RuntimeError("Failed to load state_dict into model. See logs above for details.")
-            model.to(device)
+            model.to("cpu")
             model.eval()
+
+            model = torch.quantization.quantize_dynamic(
+                model,
+                {torch.nn.Linear},
+                dtype=torch.qint8
+            )
             import gc
             gc.collect()
             print("Model loaded successfully and set to eval mode.")

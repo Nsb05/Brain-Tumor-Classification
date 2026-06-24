@@ -2,13 +2,10 @@ flask
 Pillow
 flask-cors
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
+torch==2.7.1+cpu
+torchvision==0.22.1+cpu
 numpy
-pandas
-matplotlib
 opencv-python-headless
-scikit-learn
 PyYAML
 tqdm
 gunicorn
