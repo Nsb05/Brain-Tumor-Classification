@@ -267,9 +267,11 @@ def predict():
         img_bytes = file.read()
         img = Image.open(io.BytesIO(img_bytes))
 
-        # quick validation
-        if img.mode not in ['L', 'RGB']:
-            return jsonify({"error": "Please upload a valid brain MRI image."}), 400
+        # normalize image format
+        try:
+            img = img.convert("RGB")
+        except Exception:
+            return jsonify({"error":"Could not read uploaded image."}), 400
         if img.width < 100 or img.height < 100:
             return jsonify({"error": "Image too small (min 100×100)."}), 400
         img_arr = np.array(img.convert('L'))
@@ -278,7 +280,7 @@ def predict():
             return jsonify({"error": "Image brightness abnormal; not an MRI?"}), 400
 
         # preprocess for model
-        img_rgb = img.convert('RGB')
+        img_rgb = img
         img_tensor = data_transforms(img_rgb).unsqueeze(0).to(device)
 
         if ENABLE_GRADCAM:
