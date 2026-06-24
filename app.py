@@ -258,6 +258,36 @@ def load_model():
             traceback.print_exc()
             os._exit(1)
 
+
+def generate_report_heatmap(img):
+    load_model()
+    img_rgb = img.convert("RGB")
+    img_tensor = data_transforms(img_rgb).unsqueeze(0).to(device)
+    img_tensor.requires_grad_(True)
+
+    logits = model(img_tensor)
+    probs = torch.softmax(logits, dim=1)[0]
+    _, pred_idx = torch.max(probs, dim=0)
+
+    overlay = generate_gradcam_overlay(
+        model,
+        img_tensor,
+        int(pred_idx.item()),
+        img_rgb
+    )
+
+    del img_tensor
+    del logits
+    gc.collect()
+
+    if overlay is None:
+        return None
+
+    buf = io.BytesIO()
+    overlay.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 app = Flask(__name__)
 CORS(app)
 
@@ -274,6 +304,26 @@ def status():
 # ------------------------------------------------------------------
 # Prediction Endpoint
 # ------------------------------------------------------------------
+
+@app.route('/generate-report-heatmap', methods=['POST'])
+def generate_report_heatmap_endpoint():
+    try:
+        if model is None:
+            load_model()
+
+        if 'image' not in request.files:
+            return jsonify({"error":"No image uploaded"}),400
+
+        img = Image.open(io.BytesIO(request.files['image'].read())).convert("RGB")
+        heatmap = generate_report_heatmap(img)
+
+        return jsonify({"heatmap": heatmap})
+
+    except Exception:
+        traceback.print_exc()
+        return jsonify({"heatmap": None}),500
+
+
 @app.route('/predict', methods=['POST'])
 def predict():
     global model

@@ -342,7 +342,8 @@
 <script>
 /* ---------- Config endpoints ---------- */
 const API_ENDPOINT = '/predict';
-const STATUS_ENDPOINT = '/status';
+const STATUS_ENDPOINT='/status';
+const REPORT_HEATMAP_ENDPOINT='/generate-report-heatmap';
 
 /* ---------- Safe element getter ---------- */
 function $id(id) {
@@ -531,7 +532,24 @@ Technical Notes
     const lines = pdf.splitTextToSize(report, maxTextWidth);
     pdf.text(lines, margin, y);
 
-    // ------------------ PAGE 2: IMAGES ------------------
+    
+if ((!heatmapOverlay || !heatmapOverlay.src) && imagePreview && imagePreview.src) {
+try{
+const blob=await fetch(imagePreview.src).then(r=>r.blob());
+const fd=new FormData();
+fd.append("image",blob,"mri.png");
+const resp=await fetch(REPORT_HEATMAP_ENDPOINT,{method:"POST",body:fd});
+if(resp.ok){
+const data=await resp.json();
+if(data.heatmap && heatmapOverlay){
+heatmapOverlay.src=data.heatmap;
+}
+}
+}catch(e){console.log("Heatmap generation skipped",e);}
+}
+
+// ------------------ PAGE 2: IMAGES ------------------
+
     pdf.addPage();
     let y2 = margin;
 
@@ -609,7 +627,7 @@ Technical Notes
     }
 
     // ------------------ SAVE PDF ------------------
-    pdf.save("brain_tumor_model_report.pdf");
+    pdf.save("Brain_tumor_report.pdf");
   });
 });
 
