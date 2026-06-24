@@ -7,6 +7,7 @@ from PIL import Image
 import io, os, numpy as np
 import traceback
 import base64
+import gc
 
 # ------------------------------------------------------------------
 # Configuration
